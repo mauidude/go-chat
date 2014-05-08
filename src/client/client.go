@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net"
 )
@@ -13,13 +14,15 @@ type Client struct {
 	reader *bufio.Reader
 }
 
-func (c *Client) send(b []byte) error {
-	_, err := c.conn.Write(b)
+// Send to Server
+func (c *Client) send(s string) error {
+	_, err := io.WriteString(c.conn, s)
 	return err
 }
 
-func (c *Client) receive(b []byte) error {
-	_, err := c.output.Write(b)
+// Write to output
+func (c *Client) receive(s string) error {
+	_, err := io.WriteString(c.output, s)
 	return err
 }
 
@@ -28,14 +31,14 @@ func (c *Client) Close() {
 }
 
 func (c *Client) Run() error {
-	sendChannel := make(chan []byte)
-	receiveChannel := make(chan []byte)
+	sendChannel := make(chan string)
+	receiveChannel := make(chan string)
 	errChannel := make(chan error)
 
 	// listen for input from user
 	go func() {
 		for {
-			line, _, err := c.input.ReadLine()
+			line, err := c.input.ReadString('\n')
 			if err != nil {
 				errChannel <- err
 			}
@@ -46,7 +49,7 @@ func (c *Client) Run() error {
 	// listen for server messages
 	go func() {
 		for {
-			line, _, err := c.reader.ReadLine()
+			line, err := c.reader.ReadString('\n')
 			if err != nil {
 				errChannel <- err
 			}
@@ -67,6 +70,7 @@ func (c *Client) Run() error {
 
 	select {
 	case err := <-errChannel:
+		fmt.Println("Error: ", err)
 		return err
 	}
 
