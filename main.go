@@ -1,85 +1,33 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
+	"client"
+	"flag"
 	"log"
-	"net"
+	"os"
+	"server"
 )
 
-type Client struct {
-	name string
-	conn net.Conn
-}
-
-type Message struct {
-	data   []byte
-	source *Client
-}
-
-type Server struct {
-	clients []*Client
-}
-
-func (s *Server) Serve(l net.Listener) error {
-	s.clients = make([]*Client, 0)
-	messageChan := make(chan *Message)
-	counter := 0
-
-	go func() {
-		for {
-			msg := <-messageChan
-
-			for _, c := range s.clients {
-				if c != msg.source {
-					_, err := fmt.Fprintf(c.conn, "%s: %s", msg.source.name, msg.data)
-					if err != nil {
-						log.Println("unable to write to %s: %s", c.conn.RemoteAddr(), err.Error())
-					}
-				}
-			}
-		}
-	}()
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		client := &Client{
-			conn: conn,
-			name: fmt.Sprintf("guest%d", counter),
-		}
-
-		counter++
-
-		s.clients = append(s.clients, client)
-		go s.handle(client, messageChan)
-	}
-}
-
-func (s *Server) handle(c *Client, messageChan chan *Message) {
-	log.Println("new connection from", c.conn.RemoteAddr())
-
-	fmt.Fprintln(c.conn, "Welcome %s", c.name)
-	for {
-		msg, _ := bufio.NewReader(c.conn).ReadString('\n')
-		messageChan <- &Message{
-			data:   []byte(msg),
-			source: c,
-		}
-	}
-}
-
 func main() {
-	l, err := net.Listen("tcp", ":9090")
-	if err != nil {
-		log.Fatal("unable to listen", err)
+	var runAsClient bool
+	flag.BoolVar(&runAsClient, "client", false, "run as a client")
+	flag.Parse()
+
+	if runAsClient {
+		var addr string
+		flag.StringVar(&addr, "addr", ":9090", "the address of the server")
+
+		c, err := client.New(addr, os.Stdin, os.Stdout)
+		if err != nil {
+			log.Fatalf("unable to connect to server at %s", addr)
+		}
+
+		log.Fatal(c.Run())
+	} else {
+
+		s := &server.Server{}
+
+		log.Println("starting server")
+		log.Fatal(s.ListenAndServe(":9090"))
 	}
-
-	s := &Server{}
-
-	log.Println("starting server")
-	log.Fatal(s.Serve(l))
 }
