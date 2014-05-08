@@ -10,6 +10,7 @@ import (
 type Client struct {
 	name string
 	conn net.Conn
+	id   int
 }
 
 type Message struct {
@@ -17,8 +18,10 @@ type Message struct {
 	source *Client
 }
 
+type IdClients map[int]*Client
+
 type Server struct {
-	clients []*Client
+	clients IdClients
 }
 
 func (s *Server) ListenAndServe(addr string) error {
@@ -31,7 +34,7 @@ func (s *Server) ListenAndServe(addr string) error {
 }
 
 func (s *Server) Serve(l net.Listener) error {
-	s.clients = make([]*Client, 0)
+	s.clients = make(IdClients, 0)
 	messageChan := make(chan *Message)
 	counter := 0
 
@@ -59,11 +62,13 @@ func (s *Server) Serve(l net.Listener) error {
 		client := &Client{
 			conn: conn,
 			name: fmt.Sprintf("guest%d", counter),
+			id:   counter,
 		}
 
 		counter++
 
-		s.clients = append(s.clients, client)
+		// s.clients = append(s.clients, client)
+		s.clients[client.id] = client
 		go s.handle(client, messageChan)
 	}
 }
@@ -73,7 +78,12 @@ func (s *Server) handle(c *Client, messageChan chan *Message) {
 
 	fmt.Fprintf(c.conn, "Welcome %s\n", c.name)
 	for {
-		msg, _ := bufio.NewReader(c.conn).ReadString('\n')
+		msg, err := bufio.NewReader(c.conn).ReadString('\n')
+		if err != nil {
+			fmt.Println("Err", err)
+			delete(s.clients, c.id)
+			break
+		}
 		messageChan <- &Message{
 			data:   []byte(msg),
 			source: c,
