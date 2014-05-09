@@ -10,12 +10,12 @@ import (
 
 func main() {
 	var runAsClient bool
+	var addr string
 	flag.BoolVar(&runAsClient, "client", false, "run as a client")
+	flag.StringVar(&addr, "addr", ":9090", "the address of the server")
 	flag.Parse()
 
 	if runAsClient {
-		var addr string
-		flag.StringVar(&addr, "addr", ":9090", "the address of the server")
 
 		c, err := client.New(addr, os.Stdin, os.Stdout)
 		if err != nil {

@@ -1,3 +1,4 @@
 go-chat
 pkg/
 bin/
+logs/

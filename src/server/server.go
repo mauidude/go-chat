@@ -3,8 +3,12 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
+	"os"
+	"time"
 )
 
 type Client struct {
@@ -36,20 +40,36 @@ func (s *Server) ListenAndServe(addr string) error {
 func (s *Server) Serve(l net.Listener) error {
 	s.clients = make(IdClients, 0)
 	messageChan := make(chan *Message)
+	logChan := make(chan string)
 	counter := 0
+	filePath := fmt.Sprintf("logs/%d.log", time.Now().Unix())
+	logFile, _ := os.Create(filePath)
+
+	go func() {
+		http.ListenAndServe(":9091", http.FileServer(http.Dir("logs")))
+	}()
 
 	go func() {
 		for {
 			msg := <-messageChan
 
+			toSend := fmt.Sprintf("%s: %s", msg.source.name, msg.data)
+			logChan <- toSend
 			for _, c := range s.clients {
 				if c != msg.source {
-					_, err := fmt.Fprintf(c.conn, "%s: %s", msg.source.name, msg.data)
+					_, err := fmt.Fprintf(c.conn, toSend)
 					if err != nil {
 						log.Println("unable to write to %s: %s", c.conn.RemoteAddr(), err.Error())
 					}
 				}
 			}
+		}
+	}()
+
+	go func() {
+		for {
+			msg := <-logChan
+			io.WriteString(logFile, msg)
 		}
 	}()
 
