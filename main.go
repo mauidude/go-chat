@@ -1,11 +1,11 @@
 package main
 
 import (
-	"client"
 	"flag"
+	"github.com/mauidude/go-chat/client"
+	"github.com/mauidude/go-chat/server"
 	"log"
 	"os"
-	"server"
 )
 
 func main() {
